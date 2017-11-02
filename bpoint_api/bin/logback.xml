@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+  
+	<property name="APP_LOG_HOME" value="/data/was/servicelogs" />
+
+    <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- encoders are assigned the type
+             ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+        <encoder>
+            <!-- 로그시간 + 패키지 및 클래스명 + 메소드명 + 메소드내에 로그위치 + 로깅메시지 -->
+            <pattern>%-30(%d{yyy:MM:dd HH:mm:ss.SSS}[%thread]) %-5level %class{36}[%method:%line] - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    	<file>${APP_LOG_HOME}/bpoint_api.log</file>
+    	<rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+    		<!--  파일이 하루에 한개씩 생성된다. -->
+    		<fileNamePattern>bpoint_api.%d{yyyy-MM-dd}.log</fileNamePattern>
+    		
+    		<!-- maxhistory 설정은 위 부분에 롤링 정책에 따라 적용된다고 보면 된다.
+    		위 설정대로 라면 30일이 지난 파일은 삭제가 된다. -->
+    		<maxHistory>30</maxHistory>
+    	</rollingPolicy>
+    	<encoder>
+    		<pattern>%-30(%d{yyy:MM:dd HH:mm:ss.SSS}[%thread]) %-5level %class{36}[%method:%line] - %msg%n</pattern>
+    	</encoder>
+    </appender>
+       
+    <!-- 로그를 찍고자하는 클래스정보를 넣어주면 된다  additivity="false"-->
+    <logger name="org.mybatis" level="INFO" />
+	<logger name="org.springframework" level="INFO"/>
+    <logger name="kr.co.rmtechs" level="DEBUG"  />
+    <logger name="sql" level="INFO" />
+  	
+    <!-- 기본 로그 레벨  -->
+    <root level="DEBUG">
+        <appender-ref ref="FILE" />
+    </root>
+</configuration>

@@ -1,0 +1,664 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="kr.co.rmtechs.bpoint_domain.mapper.BpointDomainMapper">
+	<!-- 테스트를 위함   --> 
+	<select id="findAll" 		resultType="kr.co.rmtechs.bpoint_domain.vo.UserVO">
+		SELECT * FROM rm_user_mst	
+	</select>
+	
+	<!-- ##### method : 5.1 get_version ##### -->
+	<select id="getLastVersion" resultType="kr.co.rmtechs.bpoint_domain.vo.VersionVO">
+		SELECT app_ver_major, app_ver_minor, app_os, app_title, app_detail,
+		app_url, app_type ,
+		id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+		id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_app_mst
+		WHERE app_os = #{os}
+		ORDER BY app_ver_minor desc, app_ver_major desc
+		LIMIT 1
+	</select>
+	
+	<!-- ##### method : 5.2 login 로그인 check ##### -->
+	<!--  사용자의 rank 를 체크하기 위함.  -->
+	<select id="getUserRank" resultType="kr.co.rmtechs.bpoint_domain.vo.MemberVO">
+		SELECT member_rank, member_group FROM rm_member_mst
+		WHERE member_id = #{member_id} 
+	</select>
+	
+	<select id="checkLogin" parameterType="kr.co.rmtechs.bpoint_domain.vo.MemberVO" resultType="int">
+		SELECT count(member_id) FROM rm_member_mst 
+		WHERE member_id = #{member_id} AND member_pwd = password(#{member_pwd})
+	</select>
+	<update id="updateLogin" parameterType="kr.co.rmtechs.bpoint_domain.vo.MemberVO">
+		UPDATE rm_member_mst SET member_uuid = #{member_uuid}
+		WHERE member_id = #{member_id}
+	</update>
+	
+	<select id="getUser" resultType="kr.co.rmtechs.bpoint_domain.vo.MemberVO">
+		SELECT member_id, member_pwd, member_name, member_rank, member_group,
+			member_phone, member_uuid,
+			date_format(member_login_time, '%Y-%m-%d %H:%i:%s') as member_login_time,
+			id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+			id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_member_mst
+		WHERE member_id = #{member_id}
+	</select>
+	
+	<!-- ##### method : 5.3 group_list ##### -->
+	<select id="getGroupList" resultType="kr.co.rmtechs.bpoint_domain.vo.GroupVO">
+		SELECT group_no, group_name, group_role, group_detail,
+		id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+		id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_group_mst
+	</select>
+	
+	<!-- ##### method : 5.4 bpoint_base_list ##### -->
+	<select id="getBpointBaseList" resultType="kr.co.rmtechs.bpoint_domain.vo.BpointBaseVO">
+		SELECT bpoint_ltid, bpoint_name, bpoint_latitude, bpoint_longitude,
+			bpoint_fail_status,
+			date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert
+		FROM rm_bpoint_mst as a	
+		WHERE 1=1
+		<if test="type==2">
+			<![CDATA[ 
+				AND (6371 * acos(cos(radians(#{latitude})) * cos(radians(bpoint_latitude)) 
+				* cos(radians(bpoint_longitude) - radians(#{longitude})) + sin(radians(#{latitude})) 
+				* sin(radians(bpoint_latitude)))) < #{value}
+			]]>
+		</if>
+		<if test="member_group_no!=null">
+			<if test="member_group_no!=0">
+				AND bpoint_ltid in (
+					SELECT bpoint_ltid FROM rm_bpoint_group_map 
+					WHERE group_no = #{member_group_no}	)
+			</if>
+		</if>
+		<if test="group_no!=null">
+			<if test="group_no!=0">
+				AND bpoint_ltid in (
+					SELECT bpoint_ltid FROM rm_bpoint_group_map 
+					WHERE group_no = #{group_no} )
+			</if>
+		</if>
+		<if test="type==3"> AND bpoint_addr_state = #{value} </if>
+		<if test="active==2"> AND bpoint_status='2'</if>
+		<if test="active==3"> AND bpoint_status='3'</if>
+		<if test="status==1"> AND bpoint_fail_status='1'</if>
+		<if test="status==2"> AND bpoint_fail_status='2'</if>
+		<if test="event_date==1">
+			<if test="order==1"> ORDER BY bpoint_event_time ASC</if>
+			<if test="order==2"> ORDER BY bpoint_event_time DESC</if>
+		</if>
+		<if test="event_date==2">
+			<if test="order==1"> ORDER BY dt_insert ASC</if>
+			<if test="order==2"> ORDER BY dt_insert DESC</if>		
+		</if>
+		LIMIT #{start}, #{count}
+	</select>
+	
+	<!-- ##### method : 5.4 bpoint_list ##### -->
+	<select id="getBpointList" resultType="kr.co.rmtechs.bpoint_domain.vo.BpointVO">
+		SELECT bpoint_ltid, bpoint_name, bpoint_status, bpoint_latitude, bpoint_longitude, 
+			bpoint_zipcode, bpoint_addr_state, bpoint_addr_city, bpoint_addr_etc, 
+			bpoint_degrees, bpoint_humidity, bpoint_x, bpoint_y, bpoint_z, 
+			date_format(bpoint_event_time, '%Y-%m-%d %H:%i:%s') as bpoint_event_time,
+			bpoint_fail_status, 
+			date_format(bpoint_base_event_time, '%Y-%m-%d %H:%i:%s') as bpoint_base_event_time,
+			bpoint_base_x, bpoint_base_y, bpoint_base_z, 
+			bpoint_base_latitude, bpoint_base_longitude, bpoint_base_statetag,
+			commpart, bpoint_signal, bpoint_battery,
+			id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+			id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_bpoint_mst as a	
+		WHERE 1=1
+		<if test="type==2">
+			<![CDATA[ 
+				AND (6371 * acos(cos(radians(#{latitude})) * cos(radians(bpoint_latitude)) 
+				* cos(radians(bpoint_longitude) - radians(#{longitude})) + sin(radians(#{latitude})) 
+				* sin(radians(bpoint_latitude)))) < #{value}
+			]]>
+		</if>
+		<if test="member_group_no!=null">
+			<if test="member_group_no!=0">
+				AND bpoint_ltid in (
+					SELECT bpoint_ltid FROM rm_bpoint_group_map 
+					WHERE group_no = #{member_group_no}	)
+			</if>
+		</if>
+		<if test="group_no!=null">
+			<if test="group_no!=0">
+				AND bpoint_ltid in (
+					SELECT bpoint_ltid FROM rm_bpoint_group_map 
+					WHERE group_no = #{group_no} )
+			</if>
+		</if>
+		<if test="type==3"> AND bpoint_addr_state = #{value} </if>
+		<if test="active==2"> AND bpoint_status='2'</if>
+		<if test="active==3"> AND bpoint_status='3'</if>
+		<if test="status==1"> AND bpoint_fail_status='1'</if>
+		<if test="status==2"> AND bpoint_fail_status='2'</if>
+		<if test="event_date==1">
+			<if test="order==1"> ORDER BY bpoint_event_time ASC</if>
+			<if test="order==2"> ORDER BY bpoint_event_time DESC</if>
+		</if>
+		<if test="event_date==2">
+			<if test="order==1"> ORDER BY dt_insert ASC</if>
+			<if test="order==2"> ORDER BY dt_insert DESC</if>		
+		</if>
+		LIMIT #{start}, #{count}
+	</select>
+	<!-- lpid의 존재 여부를 확인하기 위하여 count로 체크 -->
+	<select id="getLtidCount" resultType="int">
+		SELECT count(bpoint_ltid) FROM rm_bpoint_mst
+		WHERE bpoint_ltid = #{ltid}
+	</select>
+	
+	<!--  ##### method : 5.4 bpoint_detail 및 reg, status 에서 사용되어짐 ##### -->
+	<select id="getLtid" resultType="kr.co.rmtechs.bpoint_domain.vo.BpointVO">
+		SELECT bpoint_ltid, bpoint_name, bpoint_status, bpoint_latitude, bpoint_longitude,
+		bpoint_zipcode, bpoint_addr_state, bpoint_addr_city, bpoint_addr_etc, bpoint_degrees, 
+		bpoint_humidity, bpoint_x, bpoint_y, bpoint_z, 
+		date_format(bpoint_event_time, '%Y-%m-%d %H:%i:%s') as bpoint_event_time,
+		bpoint_fail_status, 
+		date_format(bpoint_base_event_time, '%Y-%m-%d %H:%i:%s') as bpoint_base_event_time,
+		bpoint_base_x, bpoint_base_y, bpoint_base_z,
+		bpoint_base_latitude, bpoint_base_longitude, bpoint_base_statetag,
+		commpart, bpoint_signal, bpoint_battery,
+		id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+		id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_bpoint_mst
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</select>
+	
+	<select id="getMemberAndLtidGroupMapCount" resultType="int">
+		SELECT count(bpoint_ltid) FROM rm_bpoint_group_map as a
+		JOIN rm_member_mst as b
+		ON (a.group_no = b.member_group)
+		WHERE a.bpoint_ltid=#{bpoint_ltid} and b.member_id=#{id}
+	</select>
+	
+	<!--  ##### method : bpoint_list, bpoint_base, bpoint_detail, bpoint_reg, bpoint_status에서 group 정보를 가져옴. -->
+	<select id="getBpointGroupMap" resultType="kr.co.rmtechs.bpoint_domain.vo.BpointGroupMapVO">
+		SELECT bpoint_ltid, group_no, 
+			id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+			id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_bpoint_group_map
+		WHERE bpoint_ltid = #{bpoint_ltid};
+	</select>
+		
+	<!-- ##### method : 5.5 bpoint_status ##### -->
+	<update id="appUpdateBpointStatus" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointVO" >
+		UPDATE rm_bpoint_mst 
+		SET bpoint_status=#{bpoint_status}, id_update=#{id_update}, dt_update=now()
+		WHERE bpoint_ltid=#{bpoint_ltid}
+	</update>
+	<delete id="deleteBpoint">
+		DELETE FROM rm_bpoint_mst
+		WHERE bpoint_ltid=#{bpoint_ltid}
+	</delete>
+	
+	<!-- ##### method : 5.6 bpoint_req ##### -->
+	<insert id="insertBpoint" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointVO" >
+		INSERT INTO rm_bpoint_mst (bpoint_ltid,bpoint_name,bpoint_status,bpoint_latitude,
+		bpoint_longitude, bpoint_zipcode, bpoint_addr_state, bpoint_addr_city,
+		bpoint_addr_etc, bpoint_degrees, bpoint_humidity, 
+		bpoint_x, bpoint_y, bpoint_z, bpoint_fail_status, 
+		commpart, bpoint_battery, bpoint_signal, id_insert, dt_insert) 
+		VALUES
+		(#{bpoint_ltid}, #{bpoint_name}, #{bpoint_status}, #{bpoint_latitude},
+		#{bpoint_longitude},  #{bpoint_zipcode}, #{bpoint_addr_state}, #{bpoint_addr_city}, 
+		#{bpoint_addr_etc}, #{bpoint_degrees}, #{bpoint_humidity}, 
+		#{bpoint_x}, #{bpoint_y}, #{bpoint_z}, '1', 
+		#{commpart}, 0, 0, #{id_insert}, now())
+	</insert>
+
+	<select id="getThingplugCount" resultType="int">
+		SELECT count(bpoint_ltid) 
+		FROM rm_bpoint_thingplug_map
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</select>
+	<insert id="insertThingplug">
+		INSERT INTO rm_bpoint_thingplug_map(bpoint_ltid)
+		VALUES (#{bpoint_ltid})
+	</insert>
+	<insert id="deleteThingplug">
+		DELETE FROM rm_bpoint_thingplug_map
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</insert>
+	
+	<update id="appUpdateBpoint" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointVO" >
+		UPDATE rm_bpoint_mst SET
+		bpoint_name=#{bpoint_name}, bpoint_status=#{bpoint_status}, 
+		bpoint_latitude=#{bpoint_latitude},	bpoint_longitude=#{bpoint_longitude}, 
+		bpoint_zipcode= #{bpoint_zipcode}, bpoint_addr_state=#{bpoint_addr_state},
+		bpoint_addr_city=#{bpoint_addr_city}, bpoint_addr_etc=#{bpoint_addr_etc},
+		id_update=#{id_update}, dt_update=now()
+		WHERE bpoint_ltid=#{bpoint_ltid}
+	</update>
+	
+	<!--  ##### method : 5.6 bpoint_reg, 5.8 bpoint_status, 5.10 alarm_set ######-->
+	<insert id="insertEvent">
+		INSERT INTO rm_event_hist(event_seq, event_time, event_type, event_ltid, 
+		event_status, event_title,event_detail, id_insert)
+		VALUES (null, now(), #{event_type}, #{event_ltid}, 
+		#{event_status}, #{event_title}, #{event_detail}, #{id_insert})
+	</insert>
+	
+	<!--  method : 5.7 bpoint_hist -->
+	<select id="getBpointHist" resultType="kr.co.rmtechs.bpoint_domain.vo.BpointHistVO">
+		SELECT bpoint_seq, bpoint_ltid, date_format(bpoint_event_time, '%Y-%m-%d %H:%i:%s') as bpoint_event_time, 
+			 bpoint_status, bpoint_degrees, bpoint_humidity, bpoint_x, bpoint_y, bpoint_z, bpoint_msg,
+			 bpoint_statetag, date_format(bpoint_last_modified_time, '%Y-%m-%d %H:%i:%s') as bpoint_last_modified_time
+		FROM rm_bpoint_hist
+		 <if test="bpoint_ltid != null">
+		 	WHERE bpoint_ltid = #{bpoint_ltid}
+		 </if>
+		ORDER BY bpoint_event_time DESC, bpoint_seq DESC
+		LIMIT #{start}, #{count}		
+	</select>
+	<insert id="insertBpointHist" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointHistVO">
+		INSERT INTO rm_bpoint_hist
+		VALUES (null, #{bpoint_ltid}, now(), #{bpoint_status}, #{bpoint_degrees}, #{bpoint_humidity}, 
+			#{bpoint_x}, #{bpoint_y}, #{bpoint_z}, #{bpoint_msg}, #{bpoint_battery}, #{bpoint_signal}, 
+			#{bpoint_statetag}, 
+			<if test="bpoint_last_modified_time!=null">
+				STR_TO_DATE(SUBSTRING(#{bpoint_last_modified_time}, 1, 19), '%Y-%c-%dT%H:%i:%S') )
+			</if>
+			<if test="bpoint_last_modified_time==null"> null) </if>
+	</insert>
+		
+	<!-- method : 5.8 bpoint_group_map -->
+	<insert id="insertGroupMap" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointGroupMapVO">
+		INSERT rm_bpoint_group_map (bpoint_ltid, group_no, id_insert, dt_insert, id_update, dt_update)
+		VALUES
+		<foreach collection="ltidGroupMap" item="vo" separator=",">
+			(#{vo.bpoint_ltid}, #{vo.group_no}, #{vo.id_insert}, now(), null, null)
+		</foreach>
+	</insert>
+	<delete id="deleteGroupMap" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointGroupMapVO">
+		DELETE FROM rm_bpoint_group_map
+		WHERE (
+		<foreach collection="ltidGroupMap" item="vo" separator="OR">
+			(bpoint_ltid=#{vo.bpoint_ltid} AND group_no=#{vo.group_no}) 			
+		</foreach>
+		)
+	</delete>
+	
+	<select id="getLtidGroupMapCount" resultType="int">
+		SELECT count(bpoint_ltid) 
+		FROM rm_bpoint_group_map
+		WHERE ( 
+		<foreach collection="ltidGroupMap" item="vo" separator="OR"> 
+			(bpoint_ltid=#{vo.bpoint_ltid} AND group_no = #{vo.group_no})
+		</foreach> 
+		)
+	</select>
+	
+	<!-- ##### method : 5.9 event_list ##### -->
+	<select id="getEventList" resultType="kr.co.rmtechs.bpoint_domain.vo.EventHistVO">
+		SELECT event_seq, date_format(event_time, '%Y-%m-%d %H:%i:%s') as event_time, 
+			event_type, event_ltid,	event_status, event_title, event_detail, id_insert,
+			event_read_status, 
+			date_format(event_read_time, '%Y-%m-%d %H:%i:%s') as event_read_time, 
+			date_format(event_write_time, '%Y-%m-%d %H:%i:%s') as event_write_time
+		FROM rm_event_hist
+		<choose>
+			<when test="type=='4'.toString() and ltid!=null">
+				WHERE event_ltid = #{ltid}
+			</when>
+			<when test="type=='1'.toString()">
+				<if test="ltid!=null">
+					WHERE event_type='1' AND event_ltid = #{ltid}
+				</if>
+				<if test="ltid==null">
+					WHERE event_type='1'
+				</if>
+			</when>
+			<when test="type=='2'.toString()">
+				WHERE event_type = '2'
+			</when>
+			<when test="type=='3'.toString()">
+				WHERE event_type = '3'
+			</when>
+			<when test="type=='5'.toString()">
+				WHERE event_read_status='1' 
+			</when>
+			<when test="type=='6'.toString()">
+				WHERE event_read_status='1' OR event_read_status='2'
+			</when>
+		</choose>
+		<choose> 
+			<when test="type=='5'.toString()">
+				ORDER BY event_time ASC LIMIT #{total}, #{count}
+			</when>
+			<when test="type=='6'.toString()">
+				ORDER BY event_time ASC LIMIT #{total}, #{count}
+			</when>
+			<otherwise>
+				ORDER BY event_time DESC LIMIT #{total}, #{count}
+			</otherwise>
+		</choose>
+			
+	</select>
+	
+	<!-- ##### method : 5.10 alarm set ##### -->
+	<update id="appUpdateSetting">
+		UPDATE rm_setting_mst
+		SET setting_value1=#{value1}, setting_value2=#{value2}, 
+			setting_value3=#{value3}, id_update=#{id}, dt_update=now()
+		WHERE setting_no=#{no}	
+	</update>
+		
+	<!--  ##### method : 5.11 alarm ##### -->
+	<select id="getSetting" resultType="kr.co.rmtechs.bpoint_domain.vo.SettingVO">
+		SELECT setting_no as no, setting_title as title, setting_detail as detail,
+		setting_value1 as value1, setting_value2 as value2, setting_value3 as value3,
+		id_insert, date_format(dt_insert, '%Y-%m-%d %H:%i:%s') as dt_insert, 
+		id_update, date_format(dt_update, '%Y-%m-%d %H:%i:%s') as dt_update
+		FROM rm_setting_mst
+		WHERE setting_no = #{no}
+	</select>
+	
+	<!-- ##### method : 5.12 change_pwd ##### -->
+	<update id="changePwd" parameterType="kr.co.rmtechs.bpoint_domain.vo.MemberVO">
+		UPDATE rm_member_mst
+		SET member_pwd = password(#{member_pwd})
+		WHERE member_id = #{member_id}	
+	</update>
+	
+	<!-- ##### method : push  ##### -->
+	<select id="getMemberToken" resultType="string">
+		SELECT DISTINCT member_uuid FROM rm_member_mst
+		WHERE  length(member_uuid) > 32
+	</select>
+			
+	<update id="setEventList" >
+		UPDATE rm_event_hist 
+		SET event_read_status=#{event_read_status}
+		<choose> 
+			<when test="event_read_status=='2'">
+				,event_read_time = now()
+			</when>
+			<when test="event_read_status=='3'">
+				,event_write_time = now()
+			</when>
+			<when test="event_read_status=='4'">
+				,event_read_time = now()
+			</when>
+			<when test="event_read_status=='5'">
+				,event_write_time = now()
+			</when>
+		</choose>
+		WHERE	event_seq = #{event_seq}
+	</update>
+	
+	<update id="setPushResult" >
+		UPDATE rm_event_hist 
+		SET event_read_status='4',
+			event_write_time=now(),
+			event_send_status=#{send_status},
+			event_send_response=#{response},
+			event_send_succ_count=#{succ_count},
+			event_send_fail_count=#{fail_count}
+		WHERE	event_seq = #{event_seq}
+	</update>
+	
+	<update id="setBpointBaseContent" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointContentVO" >
+		UPDATE rm_bpoint_mst
+		SET 
+		<if test="bpoint_fail_clear==true">
+			bpoint_fail_status = '1',
+		</if>
+			bpoint_degrees = #{bpoint_degrees},
+			bpoint_humidity = #{bpoint_humidity},
+			bpoint_x = #{bpoint_base_x},
+			bpoint_y = #{bpoint_base_y},
+			bpoint_z = #{bpoint_base_z},
+			bpoint_battery = #{bpoint_base_battery},
+			bpoint_signal = #{bpoint_base_signal},
+			bpoint_event_time = now(),
+			bpoint_base_event_time = STR_TO_DATE(SUBSTRING(#{bpoint_base_event_time}, 1, 19), '%Y-%c-%dT%H:%i:%S'),
+			bpoint_base_x = #{bpoint_base_x},
+			bpoint_base_y = #{bpoint_base_y},
+			bpoint_base_z = #{bpoint_base_z},
+			bpoint_base_latitude = #{bpoint_base_latitude},
+			bpoint_base_longitude = #{bpoint_base_longitude},
+			bpoint_base_statetag = #{bpoint_base_statetag}
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</update>
+	
+	<!-- ##### method : lora  ##### -->
+	<update id="updateBpointFailStatus" parameterType="kr.co.rmtechs.bpoint_domain.vo.BpointVO" >
+		UPDATE rm_bpoint_mst 
+		SET bpoint_fail_status=#{bpoint_fail_status},
+			bpoint_degrees = #{bpoint_degrees},
+			bpoint_humidity = #{bpoint_humidity},
+			bpoint_x = #{bpoint_x},	bpoint_y = #{bpoint_y}, bpoint_z = #{bpoint_z},
+			bpoint_battery = #{bpoint_battery}, bpoint_signal = #{bpoint_signal},
+			bpoint_event_time = STR_TO_DATE(SUBSTRING(#{bpoint_event_time}, 1, 19), '%Y-%c-%dT%H:%i:%S')
+		WHERE bpoint_ltid=#{bpoint_ltid}
+	</update>	
+	
+	
+	<select id="getLtidForThingPlugNode" resultType="string" parameterType="kr.co.rmtechs.bpoint_api.config.BpointProperties">
+		SELECT a.bpoint_ltid as bpoint_ltid
+		FROM rm_bpoint_mst as a
+		JOIN rm_bpoint_thingplug_map as b
+		ON  a.bpoint_ltid = b.bpoint_ltid
+		WHERE (b.thingplug_status = 0 OR
+			  	( b.thingplug_status = 1 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 600) ) OR
+			  	( b.thingplug_status = 2 AND b.thingplug_node_status != 200 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_node_recv_time, now())) > 600) ))
+			   	 <choose> 
+			   	 	<when test="dev_eui_1!=null and dev_eui_2!=null">
+			   	 		AND ( 
+			   	 			substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1} 
+			   	 			OR substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2} )		
+			   	 	</when>
+			   	 	<when test="dev_eui_1!=null and dev_eui_2==null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1}	)				   	 	
+			   	 	</when>
+			   	 	<when test="dev_eui_1==null and dev_eui_2!=null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2}	)				   	 	
+			   	 	</when>
+				</choose>
+		LIMIT 20
+	</select>	
+
+
+	<select id="getLtidForThingPlugRemoteCES" resultType="string" parameterType="kr.co.rmtechs.bpoint_api.config.BpointProperties">
+		SELECT a.bpoint_ltid as bpoint_ltid
+		FROM rm_bpoint_mst as a
+		JOIN rm_bpoint_thingplug_map as b
+		ON  a.bpoint_ltid = b.bpoint_ltid
+		WHERE ( ( b.thingplug_status = 2 AND  
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_node_recv_time, now())) > 1800) ) OR
+			  	( b.thingplug_status = 3 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 600) ) OR
+			  	( b.thingplug_status = 4 AND b.thingplug_remoteCES_status != 200 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_remoteCES_recv_time, now())) > 600) ))
+			   	 <choose> 
+			   	 	<when test="dev_eui_1!=null and dev_eui_2!=null">
+			   	 		AND ( 
+			   	 			substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1} 
+			   	 			OR substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2} )		
+			   	 	</when>
+			   	 	<when test="dev_eui_1!=null and dev_eui_2==null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1}	)				   	 	
+			   	 	</when>
+			   	 	<when test="dev_eui_1==null and dev_eui_2!=null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2}	)				   	 	
+			   	 	</when>
+				</choose>
+		LIMIT 20
+	</select>	
+	
+	<!-- ##### method : thingplug container 연동을 위하여  null 이거나 10분이 지난 거나 읽고 10분이 지난경우 ##### -->
+	<select id="getLtidForThingPlugContainer" resultType="string" parameterType="kr.co.rmtechs.bpoint_api.config.BpointProperties">
+		SELECT a.bpoint_ltid as bpoint_ltid
+		FROM rm_bpoint_mst as a
+		JOIN rm_bpoint_thingplug_map as b
+		ON  a.bpoint_ltid = b.bpoint_ltid
+		WHERE (( b.thingplug_status = 4 AND  
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_remoteCES_recv_time, now())) > 1800) ) OR
+			  	( b.thingplug_status = 5 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 600) ) OR
+			  	( b.thingplug_status = 6 AND b.thingplug_container_latest_status != 200 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_container_latest_recv_time, now())) > 600) ))
+			   	 <choose> 
+			   	 	<when test="dev_eui_1!=null and dev_eui_2!=null">
+			   	 		AND ( 
+			   	 			substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1} 
+			   	 			OR substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2} )		
+			   	 	</when>
+			   	 	<when test="dev_eui_1!=null and dev_eui_2==null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1}	)				   	 	
+			   	 	</when>
+			   	 	<when test="dev_eui_1==null and dev_eui_2!=null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2}	)				   	 	
+			   	 	</when>
+				</choose>
+		LIMIT 20
+	</select>
+	
+
+	<select id="getLtidForThingPlugSubscription" resultType="string" parameterType="kr.co.rmtechs.bpoint_api.config.BpointProperties">
+		SELECT a.bpoint_ltid as bpoint_ltid
+		FROM rm_bpoint_mst as a
+		JOIN rm_bpoint_thingplug_map as b
+		ON  a.bpoint_ltid = b.bpoint_ltid
+		WHERE (	( b.thingplug_status = 7 AND  
+			   		(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 1800) ) OR
+				( b.thingplug_status = 9 AND  
+			   		(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 1800) ) OR
+			   	( b.thingplug_status = 11 AND  
+			   		(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 1800) ) OR
+			   	( b.thingplug_status = 8 AND b.thingplug_subscription_retrieve_status != 200 AND 
+			  		b.thingplug_subscription_retrieve_status != 404 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_subscription_retrieve_recv_time, now())) > 600) ) OR
+			  	( b.thingplug_status = 10 AND b.thingplug_subscription_status != 200 AND 
+			  		b.thingplug_subscription_status != 201 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_subscription_recv_time, now())) > 600) ) OR
+			    ( b.thingplug_status = 12 AND b.thingplug_subscription_status != 200 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_subscription_recv_time, now())) > 600) ) )
+			   	 <choose> 
+			   	 	<when test="dev_eui_1!=null and dev_eui_2!=null">
+			   	 		AND ( 
+			   	 			substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1} 
+			   	 			OR substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2} )		
+			   	 	</when>
+			   	 	<when test="dev_eui_1!=null and dev_eui_2==null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1}	)				   	 	
+			   	 	</when>
+			   	 	<when test="dev_eui_1==null and dev_eui_2!=null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2}	)				   	 	
+			   	 	</when>
+				</choose> 
+		LIMIT 20
+	</select>	
+	
+	<select id="getLtidForThingPlugSubscriptionDelete" resultType="string" parameterType="kr.co.rmtechs.bpoint_api.config.BpointProperties">
+		SELECT a.bpoint_ltid as bpoint_ltid
+		FROM rm_bpoint_mst as a
+		JOIN rm_bpoint_thingplug_map as b
+		ON  a.bpoint_ltid = b.bpoint_ltid
+		WHERE (	( b.thingplug_status = 13 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_read_time, now())) > 600) ) OR
+			  	( b.thingplug_status = 14 AND b.thingplug_delete_status != 200 AND 
+			    	(UNIX_TIMESTAMP(IFNULL(b.thingplug_delete_recv_time, now())) > 600) ))
+			   	 <choose> 
+			   	 	<when test="dev_eui_1!=null and dev_eui_2!=null">
+			   	 		AND ( 
+			   	 			substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1} 
+			   	 			OR substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2} )		
+			   	 	</when>
+			   	 	<when test="dev_eui_1!=null and dev_eui_2==null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_1})) = #{dev_eui_1}	)				   	 	
+			   	 	</when>
+			   	 	<when test="dev_eui_1==null and dev_eui_2!=null">
+			   	 		AND ( substr(a.bpoint_ltid, 1, length(#{dev_eui_2})) = #{dev_eui_2}	)				   	 	
+			   	 	</when>
+				</choose>
+		LIMIT 20
+	</select>	
+
+	
+	<update id="setThingplugResponse">
+		UPDATE rm_bpoint_thingplug_map
+		<choose> 
+			<when test="thingplug_status==2">
+				SET	thingplug_status = #{db_status},
+				thingplug_node_status = #{response_status},
+				thingplug_node_recv_time = now()
+				<if test="body!=null"> ,thingplug_node_response = #{body}</if>
+				<if test="body==null"> ,thingplug_node_response = null </if>
+			</when>
+			<when test="thingplug_status==4">
+				SET	thingplug_status = #{db_status},
+				thingplug_remoteCES_status = #{response_status},
+				thingplug_remoteCES_recv_time  = now()
+				<if test="body!=null"> ,thingplug_remoteCES_response  = #{body}</if>
+				<if test="body==null"> ,thingplug_remoteCES_response  = null </if>			
+			</when>
+			<when test="thingplug_status==6">
+				SET	thingplug_status = #{db_status},
+				thingplug_container_latest_status = #{response_status},
+				thingplug_container_latest_recv_time  = now()
+				<if test="body!=null"> ,thingplug_container_latest_response  = #{body}</if>
+				<if test="body==null"> ,thingplug_container_latest_response  = null </if>			
+			</when>
+			<when test="thingplug_status==8">
+				SET	thingplug_status = #{db_status},
+				thingplug_subscription_retrieve_status = #{response_status},
+				thingplug_subscription_retrieve_recv_time  = now()
+				<if test="body!=null"> ,thingplug_subscription_retrieve_response  = #{body}</if>
+				<if test="body==null"> ,thingplug_subscription_retrieve_response  = null </if>	
+			</when>
+			<when test="thingplug_status==10 or thingplug_status==12 or thingplug_status==15">
+				SET	thingplug_status = #{db_status},
+				thingplug_subscription_status = #{response_status},
+				thingplug_subscription_recv_time  = now()
+				<if test="body!=null"> ,thingplug_subscription_response  = #{body}</if>
+				<if test="body==null"> ,thingplug_subscription_response  = null </if>	
+			</when>
+			<when test="thingplug_status==14 or thingplug_status==16">
+				SET	thingplug_status = #{db_status},
+				thingplug_delete_status = #{response_status},
+				thingplug_delete_recv_time  = now()
+				<if test="body!=null"> ,thingplug_delete_response  = #{body} </if>	
+				<if test="body==null"> ,thingplug_delete_response  = null </if>
+			</when>
+			<otherwise>
+				SET thingplug_status = #{db_status},
+				thingplug_read_time = now()
+			</otherwise>
+		</choose>
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</update>
+	
+	<select id="getThingPlug" resultType="kr.co.rmtechs.bpoint_domain.vo.ThingPlugVO" >
+		SELECT bpoint_ltid, thingplug_status, thingplug_read_time, 
+				thingplug_node_status, thingplug_node_recv_time, thingplug_node_response,
+				thingplug_remoteCES_status, thingplug_remoteCES_recv_time, thingplug_remoteCES_response,
+				thingplug_container_latest_status, thingplug_container_latest_recv_time, thingplug_container_latest_response,
+				thingplug_subscription_status, thingplug_subscription_recv_time, thingplug_subscription_response,
+				thingplug_subscription_retrieve_status, thingplug_subscription_retrieve_recv_time, thingplug_subscription_retrieve_response,
+				thingplug_delete_status, thingplug_delete_recv_time, thingplug_delete_response
+		FROM rm_bpoint_thingplug_map
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</select>
+	<select id="getThingPlugStatus" resultType="kr.co.rmtechs.bpoint_domain.vo.ThingPlugVO" >
+		SELECT bpoint_ltid, thingplug_status, thingplug_read_time, 
+				thingplug_node_status, thingplug_node_recv_time, 
+				thingplug_remoteCES_status, thingplug_remoteCES_recv_time, 
+				thingplug_container_latest_status, thingplug_container_latest_recv_time, 
+				thingplug_subscription_status, thingplug_subscription_recv_time, 
+				thingplug_subscription_retrieve_status, thingplug_subscription_retrieve_recv_time, 
+				thingplug_delete_status, thingplug_delete_recv_time
+		FROM rm_bpoint_thingplug_map
+		WHERE bpoint_ltid = #{bpoint_ltid}
+	</select>
+</mapper>
